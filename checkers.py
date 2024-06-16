@@ -9,50 +9,47 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (255, 0 , 0)
 
+
 pygame.display.set_caption("Checkers")
 pygame.init()
 
 
-def create_board_surface():
-    board_SURF = pygame.Surface((WINDOWWIDTH,WINDOWHEIGHT))
-    square_rect = pygame.Rect(0,0,SQUARESIZE, SQUARESIZE)
-    for i in range(BOARDSIZE): #ith row
-        for j in range(BOARDSIZE): #jth column
-            if (i + j) % 2 == 0:
-                square_rect = pygame.draw.rect(board_SURF, BLACK, square_rect)
-            else:
-                square_rect = pygame.draw.rect(board_SURF, WHITE, square_rect)
-            square_rect = square_rect.move(SQUARESIZE, 0)
+class Board():
+    def __init__(self, length, width):
+        self.length = length
+        self.width = width
+    
+    def create_board_surface(self):
+        self.surface = pygame.Surface((self.length, self.width))
+        square_rect = pygame.Rect(0,0,SQUARESIZE, SQUARESIZE)
+        for i in range(BOARDSIZE): #ith row
+            for j in range(BOARDSIZE): #jth column
+                if (i + j) % 2 == 0:
+                    square_rect = pygame.draw.rect(self.surface, BLACK, square_rect)
+                else:
+                    square_rect = pygame.draw.rect(self.surface, WHITE, square_rect)
+                square_rect = square_rect.move(SQUARESIZE, 0)
         square_rect.x = 0
         square_rect = square_rect.move(0, SQUARESIZE)
-    return board_SURF
 
 
-def create_board_object():
-    board = []
-    board_row = list(range(BOARDSIZE))
-    for i in range(BOARDSIZE):
-        board.append(board_row)
-    return board
+    def create_board_object(self):
+        self.board = []
+        board_row = list(range(BOARDSIZE))
+        for i in range(BOARDSIZE):
+            self.board.append(board_row)
 
 
-
-"""
-def create_piece(board_SURF):
-    return pygame.draw.ellipse(board_SURF, RED, pygame.Rect(0,0,SQUARESIZE, SQUARESIZE))
-"""
-# lets create the board
 def main():
     GAME_IS_RUNNING = True
-    board_surface = create_board_surface()
-    DISPLAY_SURF.blit(board_surface, (0,0))
-    board_object = create_board_object()
-    ### piece_surface = create_piece(board_surface)
-
+    checkerboard = Board(WINDOWWIDTH, WINDOWHEIGHT)
+    checkerboard.create_board_surface()
+    checkerboard.create_board_object()
+    DISPLAY_SURF.blit(checkerboard.surface, (0,0))
     # display the iniital state.
 
     while GAME_IS_RUNNING: # main game loop
-    # collect input
+    # collect inputace
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
@@ -64,9 +61,6 @@ def main():
     pygame.quit()
 
 main()
-
-
-
 
 
 
