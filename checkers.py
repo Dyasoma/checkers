@@ -1,25 +1,22 @@
 # TODO
 # the pieces "belong" to the board
-
-
 import pygame, sys
 from pygame.locals import *
 # Constants
 WINDOWWIDTH = 800
 WINDOWHEIGHT = 800
 SQUARECOUNT = 8
-ASPECTRATIO = 0.85
+WINDOWTOBOARDRATIO = 0.85
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 DISPLAY_SURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 SQUARESIZE = WINDOWWIDTH / SQUARECOUNT
-BOARDSIZE = WINDOWWIDTH * ASPECTRATIO
+BOARDSIZE = WINDOWWIDTH * WINDOWTOBOARDRATIO
 BOARDPOSX = (WINDOWWIDTH - BOARDSIZE) / 2
 BOARDPOSY = (WINDOWHEIGHT- BOARDSIZE) / 2
-
-
+EMPTY = None
 
 class Board:
     def __init__(self, length, width):
@@ -61,18 +58,26 @@ class Board:
     def create_board_struct(self):
         """
         create_board_struct(self):
-        Creates a Data structure whose job is ???
-        structure is used to hold ???
-    
+        Creates the instance attribute struct of the class Board.
+        Data structure is a list of lists whoses entries are initialized to None
+        Once object of class Piece are initialized entries will either contain None (no piece there)
+        Or will contain a piece at entry board.struct[i][j] where i is the "row" and j is the "col"
+        of the board.
+        Parameters : No parameters
+        Returns: None
+        Side effects: Assigns stuct instance attribute of class Board, Builds list of lists. 
         """
         self.struct = []
-        board_row = list(range(SQUARECOUNT))
         for i in range(SQUARECOUNT):
-            self.struct.append(board_row)
+            row = []
+            for j in range(SQUARECOUNT):
+                row.append(EMPTY) # all peices are initially Empty
 
 class Piece:
     def __init__(self, position: tuple, team_color: str):
-        self.position = position
+        self.position = position # graphical
+        self.row = 0 # row index on board
+        self.col = 0 # col index on board
         self.team_color = team_color
         if self.team_color == "Red":
             self.color = RED
@@ -90,21 +95,16 @@ class Piece:
             self.surface, self.color, self.surface.get_rect(), 0
         )
 
-        ### get possible moves?
 
-        ### get position
-
-        ### captured???
-
-def init_board(board_width : int, board_height : int) -> Board:
+def init_board(board_width : int, board_length : int) -> Board:
     """
     init_board(board_width, board_height) -> Board:
-    Initalizes board, taking in as parameters the board width and board height as ints
+    Initalizes board, taking in as parameters the board width and board length as ints
     creates object of class Board, initializing board objects surface and struct attributes
     creates rect instance attribute.
     Returns an instance of the Board Class
     """
-    board = Board(BOARDSIZE, BOARDSIZE)
+    board = Board(board_width, board_length)
     board.create_board_surface()
     board.create_board_struct()
     board.create_board_rect()
@@ -127,7 +127,7 @@ def create_pieces(number, team: str, board : Board) -> list[Piece]:
         pieces.append(piece)
     return pieces
 
-def set_pieces_position(pieces: list[Piece], team_color : str):
+def set_pieces_position(pieces: list[Piece], team_color : str, board : Board):
     """
     set_pieces_position(pieces: list[Piece], team_color : str)
     sets pieces position relative to the board surface, that is if the board moves, when we draw
@@ -137,23 +137,9 @@ def set_pieces_position(pieces: list[Piece], team_color : str):
     Side effect: mutates instance attribute "position"
     returns : None
     """
-    """
-    roll_over = SQUARECOUNT / 2
-    size = pieces[0].size
-    begin_box = [0, 1]
-    if team_color == "Red":
-        begin = begin_box[1]
-        j = 0
-    else: 
-        begin = begin_box[0]
-        j = SQUARECOUNT - 1
-    
-    # iterate through all pieces
-    for index in range(len(pieces)):
-        for i in range(begin, SQUARECOUNT, 2):
-            pieces[index].position = (i * size, j * size)
-            continue
-    """
+
+    # set pieces position 
+
 
 
 
@@ -164,9 +150,9 @@ def init_pieces(board : Board) -> list[list[Piece]]:
     """
     game_pieces = []
     player_1_pieces = create_pieces(12, "Red", board)
-    set_pieces_position(player_1_pieces, "Red")
+    set_pieces_position(player_1_pieces, "Red", board)
     player_2_pieces = create_pieces(12, "Blue", board)
-    set_pieces_position(player_2_pieces, "Blue")
+    set_pieces_position(player_2_pieces, "Blue", board)
     game_pieces.append(player_1_pieces)
     game_pieces.append(player_2_pieces)
     return game_pieces
@@ -190,7 +176,7 @@ def draw_elements(board : Board, pieces_1: list[Piece], pieces_2: list[Piece]):
 def main():
     pygame.display.set_caption("Checkers")
     pygame.init()
-    checkerboard = init_board(400, 400)
+    checkerboard = init_board(BOARDSIZE, BOARDSIZE)
     game_pieces = init_pieces(checkerboard)
     player_1_pieces, player_2_pieces = game_pieces[:]
 
