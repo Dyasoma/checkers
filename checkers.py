@@ -16,107 +16,150 @@ RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 DISPLAY_SURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
-SQUARESIZE = WINDOWWIDTH / SQUARECOUNT
 BOARDSIZE = WINDOWWIDTH * WINDOWTOBOARDRATIO
+SQUARESIZE = BOARDSIZE / SQUARECOUNT
 BOARDPOSX = (WINDOWWIDTH - BOARDSIZE) / 2
 BOARDPOSY = (WINDOWHEIGHT - BOARDSIZE) / 2
 EMPTY = None
 PIECESCOUNT = 12
 
-
+ # Classes
 class Board:
-    def __init__(self, width, length, square_count):
+    """
+    Represents the Board where a "Board" is a nxn checkered board. Whoses squares are themselves
+    objects. 
+    """
+    def __init__(self, width : int, length : int, square_count : int):
+        """
+        Board is initalized by providing its width and length, and the square_count
+        Note that square_count refers to the count of squares along either the x axis or y axis.
+        ex: if square count is 5, it will be assumed that a 5x5 board is desired. 
+        """
         self.width: int = width
         self.length: int = length
         self.square_count: int = square_count
+        self.struct = self.create_board_struct()
+        self.surface = self.create_board_surface()
+        self.rect = self.create_board_rect()
 
     def create_board_struct(self):
-        """ """
-        self.struct: list = []
+        """
+        Creates the instance attribute "struct" for the board object of class Board. instance 
+        attribute refers to the boards Data structure, implemented as a list of lists 
+        whose entries are objects of class Square. Mutates the list as the list is built. 
+        board.struct[i][j] refers to the ith row, and the jth column of the board.
+        Returns : a list of lists
+        Side effect : creates instance attribute "struct" and mutates it 
+        Calls to create_board_struct will overide previous instance attribute. 
+        creates empty list,
+        """
+        struct: list = []
         square_size = self.length / self.square_count
         for row_index in range(self.square_count):
             row = []
             for col_index in range(self.square_count):
-                # handles swapping colors to create checkered pattern
+                # checks if square is even or odd, setting even to white and odd to black
                 if (row_index + col_index) % 2 == 0:
                     color = WHITE
                 else:
                     color = BLACK
                 square = Square(square_size, color, row_index, col_index)
-                row.append(square)  # all peices are initially Empty
-            self.struct.append(row)
+                row.append(square)  # creates a square and adds it to the struct
+            struct.append(row)
+        return struct
 
     def create_board_surface(self):
         """
         create_board_surface(self):
         creates the board surface, using the pygame Surface object class, and assigning the returned
         surface as an instance attribute of the board object.
+        Serves as the "image" of the board
         """
-        self.surface = pygame.Surface((self.length, self.width))
+        surf = pygame.Surface((self.length, self.width))
         for row_index in range(self.square_count):
             for col_index in range(self.square_count):
                 current_square: Square = self.struct[row_index][col_index]
-                self.surface.blit(current_square.surface, current_square.pos)
+                surf.blit(current_square.surface, current_square.pos)
+        return surf
 
     def create_board_rect(self):
         """
         create_board_rect(self)
         Creates an instance attribute of object Board, using the instance attribute surface.
         Acts as a wrapper to the get_rect() function for objects of class Surface from pygame module
-        Must be called after create_board_surface(self), and any changes made surface attribute
-        requires another call to create_board_rect(self)
         """
-        self.rect = self.surface.get_rect()
-        self.rect.left = BOARDPOSX
-        self.rect.top = BOARDPOSY
-
-
-# Board squares object
-
+        rec = self.surface.get_rect() # provides size but not position
+        # sets the position of the board
+        rec.left = BOARDPOSX 
+        rec.top = BOARDPOSY
+        return rec
 
 class Square:
-    def __init__(self, size, color, row, col):  # rows/col are indices starting from 0
+    def __init__(self, size : int, color : pygame.Color, row : int, col :int):# row/col are indices
+        """
+        Square objects represent a single square tile on the board.
+        Note that the square in the ith row and jth column will have a position
+        (j * size, i * size) where i and j are the indices of the squares on the board struct.
+        ex: for square in board.struct[3][4] with size 100 it will have a position = (400, 300)
+        where the position refers to the top left corner of the square. 
+        """
         self.size = size
         self.color = color
         self.contents = EMPTY  # squares hold nothing in the beginning
         self.row = row
         self.col = col
-        self.pos = (
-            col * size,
-            row * size,
-        )  # columns go left to right, rows go up and down
-        self.surface = pygame.Surface((self.size, self.size))
-        self.surface.fill(self.color)
-        self.rect = self.surface.get_rect()
-        self.rect.x = BOARDPOSX + self.pos[0]
-        self.rect.y = BOARDPOSY + self.pos[1]
+        self.pos = ( col * size, row * size)  # columns go left to right, rows go up and down
+        self.surface = self.create_square_surface()
+        self.rect = self.create_square_rect()
 
+    def create_square_surface(self):
+        """
+        creates a surface object for the current square, which should be square.
+        Fills the square with the given color
+        """ 
+        surf = pygame.Surface((self.size, self.size))
+        surf.fill(self.color)
+        return surf
 
-# Pieces Object
-
+    def create_square_rect(self):
+        """
+        creates the rectangular area of the square, If the board does not fill the entire window
+        Then rec.x and rec.y are positions relative to the window, not the baord. 
+        """
+        rec = self.surface.get_rect()
+        rec.x = BOARDPOSX + self.pos[0] 
+        rec.y = BOARDPOSY + self.pos[1]
+        return rec
 
 class Pieces:
-    def __init__(self, number_of_pieces: int, team_color: str):
+    """
+    Object Pieces represents all the pieces that belong to a single team. Team is defined by team 
+    color parameter, number_of_pieces refers to the number of pieces on a single team, board
+    is passed as a parameter to allow for setting the pieces
+    """
+    def __init__(self, number_of_pieces: int, team_color: str, board):
         self.team_color = team_color
         self.number_of_pieces = number_of_pieces
-        self.struct = []
+        self.struct = self.create_pieces()
+        self.set(board)
 
-    def create_pieces(self):
+    def create_pieces(self) -> list:
         """
-        create_pieces(number, team : str) -> list[Piece]:
+        create_pieces(self) -> list:
         creates a list whoses elements are Piece objects.
+        uses the number_of_pieces instance attribute to decide on the number of pieces to make
+        uses the team_color instance attribute  to decide which teamm all the pieces belong to,
+        and how to color the pieces. Uses the Board object to place pieces onto the boards squares
         parameters: number is the int representing the number of pieces to make.
-        team is the str representing the team the pieces belong to.
-        Board is the current board the pieces will be placed upon
         returns a list of Piece Objects
         """
+        struct = []
         for i in range(self.number_of_pieces):
             piece = Piece(
-                (0, 0), self.team_color
+                SQUARESIZE, self.team_color
             )  # all pieces will begin at the same "position"
-            piece.create_piece_surface()
-            piece.create_piece_rect()
-            self.struct.append(piece)
+            struct.append(piece)
+        return struct
 
     def set(self, board: Board):
         """
@@ -128,7 +171,6 @@ class Pieces:
         Side effect: mutates instance attribute "position"
         returns : None
         """
-
         k = 0
         if self.team_color == "Red":
 
@@ -157,27 +199,29 @@ class Pieces:
 
         # set pieces position
 
-
 class Piece:
-    def __init__(self, pos: tuple, team_color: str):
-        self.pos = pos  # graphical
+    def __init__(self, size : float,  team_color: str):
         self.row = 0  # row index on board
         self.col = 0  # col index on board
         self.team_color = team_color
+        self.size = size
         if self.team_color == "Red":
             self.color = RED
         else:
             self.color = BLUE
-        self.size = BOARDSIZE / SQUARECOUNT
+        self.surface = self.create_piece_surface()
+        self.rect = self.create_piece_rect()
 
     def create_piece_surface(self):
-        self.surface = pygame.Surface((self.size, self.size), pygame.SRCALPHA, 32)
-        self.surface = self.surface.convert_alpha()
+        surf = pygame.Surface((self.size, self.size), pygame.SRCALPHA, 32)
+        surf = surf.convert_alpha()
+        return surf
 
     def create_piece_rect(self):
-        self.rect = pygame.draw.ellipse(
+        rec = pygame.draw.ellipse(
             self.surface, self.color, self.surface.get_rect(), 0
         )
+        return rec
 
     def set_pos(self):
         self.pos = (self.col * self.size, self.row * self.size)
@@ -188,33 +232,28 @@ class Piece:
         self.set_pos()
 
 
-def init_board(board_width: int, board_length: int, square_count) -> Board:
+# Functions
+def init_board(board_width: int, board_length: int, square_count : int) -> Board:
     """
-    init_board(board_width, board_height) -> Board:
-    Initalizes board, taking in as parameters the board width and board length as ints
-    creates object of class Board, initializing board objects surface and struct attributes
-    creates rect instance attribute.
-    Returns an instance of the Board Class
+    init_board(board_width: int, board_length: int, square_count : int) -> Board
+    Initalizes board, taking in as parameters the board width and board length as ints. Instantiates 
+    an object of class Board, creates board data structure, creates the board's surface to represent
+    the image of the board and creates the board's rect attribute to store and manipuate its 
+    rectangular area and position.
+    returns: Instance of Board Object
+    side effects : None
     """
     board = Board(board_width, board_length, square_count)
-    board.create_board_struct()
-    board.create_board_surface()
-    board.create_board_rect()
     return board
 
 
 def init_pieces(board: Board):
     """
     initializes pieces, creating a list of lists whose elements are objects of class Piece.
-
+    Then makes a call to the method set
     """
-    player_1_pieces = Pieces(PIECESCOUNT, "Red")
-    player_1_pieces.create_pieces()
-    player_1_pieces.set(board)
-
-    player_2_pieces = Pieces(PIECESCOUNT, "Blue")
-    player_2_pieces.create_pieces()
-    player_2_pieces.set(board)
+    player_1_pieces = Pieces(PIECESCOUNT, "Red", board)
+    player_2_pieces = Pieces(PIECESCOUNT, "Blue", board)
 
     return player_1_pieces, player_2_pieces
 
@@ -235,13 +274,20 @@ def draw_elements(board: Board, pieces_1: Piece, pieces_2: Pieces):
     DISPLAY_SURF.blit(board.surface, (BOARDPOSX, BOARDPOSY))
 
 
-def main():
+def init():
     pygame.display.set_caption("Checkers")
     pygame.init()
     checkerboard = init_board(BOARDSIZE, BOARDSIZE, SQUARECOUNT)
     player_1_pieces, player_2_pieces = init_pieces(checkerboard)
+    return checkerboard, player_1_pieces, player_2_pieces
 
-    # draw objects
+
+def main():
+    checkerboard : Board  
+    player_1_pieces : Pieces 
+    player_2_pieces : Pieces
+    checkerboard, player_1_pieces, player_2_pieces = init()
+
     draw_elements(checkerboard, player_1_pieces, player_2_pieces)
     GAME_IS_RUNNING = True
     while GAME_IS_RUNNING:  # main game loop
@@ -257,8 +303,10 @@ def main():
         pygame.display.update()
     pygame.quit()
 
+if __name__ == "__main__":
+    main()
 
-main()
+
 """
     A game of checkers.
 
