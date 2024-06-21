@@ -306,6 +306,7 @@ def main():
                 sys.exit()
 
         # handle events
+
         
         # update
         draw_elements(checkerboard, player_1_pieces, player_2_pieces)
