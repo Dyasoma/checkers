@@ -1,7 +1,5 @@
 # TODO
-# Clean description of EVERYTHING
-# Consider the overall flow of the program
-# Consider how to setup objects.
+# FIX MOVE PIECE
 import pygame, sys
 from pygame.locals import *
 import pygame.surface
@@ -33,63 +31,68 @@ SCREEN = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 pygame.display.set_caption("Checkers")
 
 
+ 
+ 
  # Classes
 
-
 class Piece:
+    """
+    Piece objects are singular game pieces. Each piece is represented visually using surface and
+    rect objects from pygame. A singular piece object will be represented visually as a circle
+    with a color denoting the team a piece belongs to. Each piece exists on the game board on a
+    given square.
+    """
     def __init__(self, radius : float,  color: pygame.Color):
         self.radius = radius
         self.color = color
         self.row = 0  # row index on board
         self.col = 0  # col index on board
         self.size = self.radius * 2 # size of rect enclosing piece
-        self.surface = self.__create_piece_surface()
-        self.rect = self.__create_piece_rect()
-        self.__set_pos()
+        self.surface = self.__create_piece_surface() # create surface
+        self.rect = self.__create_piece_rect() # draws onto surface and provides rect
+        self.rel_pos, self.abs_pos = self.__set_pos()
 
     def __create_piece_surface(self) -> pygame.Surface:
         """
         __create_piece_surface(self) -> pygame.Surface: creates the surface of a game piece. 
-        Where the surface is an image with area that encloses it. Creates a surface that can become
-        transparent, and fills it with a transparent color
-        return : pygame surface object. 
+        Where the surface is an image with area that encloses it. Implementation of drawing the
+        circle is not completed in this method, rather this private method simply creates the
+        surface from which we intend to draw upon. This is done so that each piece has a distinct
+        surface and allows for more control over each piece, at the cost of more floating attributes
+        Note that the surface is set to allow for transparencys
+        returns : pygame surface object. 
         """
-        # creates the transparent surface to draw on
+        # creates the surface for which transparency is allowed
         surf = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
-        surf.fill((0,0,0,0)) #fills surface with "transparency"
+        surf.fill((0,0,0,0)) #fills surface with "transparent" color.
         return surf
 
     def __create_piece_rect(self) -> pygame.Rect:
         """
-        Creates the rectangular area enclosing the piece. Used for moving the piece
+        Creates the rectangular area enclosing the piece. Note that when we are drawing a circle
+        onto a surface, in this instance the object itselfs surface, the center is relative to
+        the surface, not to the SCREEN, i.e. the center is the radius. This makes more sense
+        if we imagine a box enclosing whose top left corner lies on the origin of a x-y plane 
+        the center of that box is simply the center of the circle which lies the radius distance
+        from the origin, (in x and y). 
         returns : a pygame rect object. 
         """
         # The center we use to draw is relative to the the surface we drawn onto. 
         rect = pygame.draw.circle(self.surface, self.color, (self.radius, self.radius), self.radius)
         return rect
 
-    def __set_pos(self):
+    def __set_pos(self) -> tuple[tuple[float]]:
         """
         __set_pos(self):
-        Sets the position of the piece, creating two instance attributes rel_pos and abs_pos
-        which represent the relative position and absolute position of the piece respectively
-        the relative position is relative to the board. The absolute position is relative to the 
-        screen window. 
-        """
-        self.rel_pos = (self.col * self.size, self.row * self.size)
-        self.abs_pos = (self.col * self.size + BOARDPOSX, self.row * self.size + BOARDPOSY)
+        Sets the position of the piece, creating two instance attributes rel_pos (relative position)
+        and abs_pos (absolute position), rel_pos is relative to the board, abs_pos is relative to
+        the screen. If the board fills the screen, then both attributes refer to the same thing.
 
-    def move_piece(self, new_row, new_col):
+        returns : tuple of tuple where first tuple is the rel_pos and second is the abs_pos
         """
-        move_piece(self, new_row, new_col):
-        takes in as parameters the new row and col a piece will be set to. updates the row and col
-        instance attributes, and then makes a call to __set_pos().
-
-        """
-        self.row = new_row
-        self.col = new_col
-        self.__set_pos()
-
+        rel_pos = (self.col * self.size, self.row * self.size)
+        abs_pos = (self.col * self.size + BOARDPOSX, self.row * self.size + BOARDPOSY)
+        return (rel_pos, abs_pos)
 
 class Pieces:
     """
@@ -101,10 +104,11 @@ class Pieces:
         self.number_of_pieces = number_of_pieces
         self.struct = self.__create_pieces()
 
-    def __create_pieces(self) -> list:
+    def __create_pieces(self) -> list[Piece]:
         """
         create_pieces(self) -> list:
-        creates a list whoses elements are Piece objects.
+        creates the instance attribute "struct" which refers to the data structure of the pieces.
+        structuere is represented by a list whose elements are objects of class Piece
         uses the number_of_pieces instance attribute to decide on the number of pieces to make
         uses the team_color instance attribute  to decide which team all the pieces belong to,
         and how to color the pieces.
@@ -118,13 +122,12 @@ class Pieces:
             struct.append(piece)
         return struct
 
-
 class Square:
     def __init__(self, size : int, color : pygame.Color, row : int, col :int):# row/col are indices
         """
         Square objects represent a single square tile on the board.
         Note that the square in the ith row and jth column will have a position
-        (j * size, i * size) where i and j are the indices of the squares on the board struct.
+        (j * size, i * size) where i and j are the indices of the square on the board struct.
         ex: for square in board.struct[3][4] with size 100 it will have a position = (400, 300)
         where the position refers to the top left corner of the square. 
         """
@@ -145,6 +148,7 @@ class Square:
         __create_square_surface(self) -> pygame.Surface:
         creates a surface object for the current square, which should be square.
         Fills the square with the given color
+        returns : pygame surface object. 
         """ 
         surf = pygame.Surface((self.size, self.size))
         surf.fill(self.color)
@@ -155,6 +159,7 @@ class Square:
         __create_square_rect(self) -> pygame.Rect:
         creates the rectangular area of the square, If the board does not fill the entire window
         Then rec.x and rec.y are positions relative to the window, not the board. 
+        returns : pygame rect object
         """
         rec = self.surface.get_rect(topleft = self.abs_pos)
         return rec
@@ -231,17 +236,10 @@ class Board:
         create_board_rect(self)
         Creates an instance attribute of object Board, using the instance attribute surface.
         Acts as a wrapper to the get_rect() function for objects of class Surface from pygame module
+        returns : pygame rect object
         """
-        rec = self.surface.get_rect() # provides size but not position
-        # sets the position of the board
-        rec.left = BOARDPOSX 
-        rec.top = BOARDPOSY
+        rec = self.surface.get_rect(topleft =(BOARDPOSX, BOARDPOSY))
         return rec
-
-
-    def update_board_elements(self, piece : Piece, row : int, col : int):
-        piece.move_piece(row, col)
-        self.struct[row][col].fill_square(piece)
 
 
     def set_pieces(self, game_pieces : tuple[Pieces]):
@@ -264,13 +262,29 @@ class Board:
                 for i in my_range:
                     for j in range(self.square_count):
                         if self.struct[i][j].color == BLACK:
-                            self.update_board_elements(pieces.struct[k], i, j)
+                            self.move_piece(pieces.struct[k], i,j)
+                            self.struct[i][j].fill_square(pieces.struct[k])
                             k += 1
                         if k == pieces.number_of_pieces:
                             break
                     if k == pieces.number_of_pieces:
                         break
 
+    def move_piece(self, piece : Piece, new_row, new_col):
+        """
+        move_piece(self, new_row, new_col):
+        takes in as parameters the new row and col a piece will be set to. updates the row and col
+        instance attributes, and then makes a call to __set_pos().
+        """
+        old_row = piece.row
+        old_col = piece.col
+        piece.row = new_row
+        piece.col = new_col
+        piece.rel_pos = (new_col * piece.size, new_row * piece.size)
+        piece.abs_pos = (new_col * piece.size + BOARDPOSX, new_row * piece.size + BOARDPOSY)
+
+    
+    
 
     def draw_pieces(self, pieces : Pieces):
         """

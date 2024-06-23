@@ -1,104 +1,100 @@
 from checkers import *
-board_size = 500
-piece_count = 12
-square_count = 8
-row = 2
-col = 2
-size = 100
-my_board = Board(board_size, board_size, square_count)
+piece_count = 6
+square_count = 6
+RED = (255, 0, 0)
+my_color = RED
+row = 0
+col = 0
+radius = 100
+size = radius * 2
+my_piece = Piece(radius, RED)
+my_pieces = Pieces(piece_count, RED) 
 my_square = Square(200, RED, row, col)
-my_piece = Piece(size, "Red")
-my_pieces = Pieces(piece_count, "Red", my_board) 
+my_board = Board(BOARDSIZE, BOARDSIZE, square_count)
 
 
-def test_board_struct_creation():
+def test_piece_attributes():
+        assert my_piece.radius == radius
+        assert my_piece.color == my_color
+        assert my_piece.row == 0  # row index on board
+        assert my_piece.col == 0  # col index on board
+        assert my_piece.size == my_piece.radius * 2 # size of rect enclosing piece
+        assert my_piece.surface.get_size() == (size, size)
+        assert my_piece.rect.size == (size, size) # draws onto surface and provides rect
+        assert my_piece.rel_pos == (col * size, row * size)
+        assert my_piece.abs_pos == (col * size + BOARDPOSX, row * size + BOARDPOSY)
+        
 
-    assert len(my_board.struct) == 8
-
-def test_board_surf_creation():
-    assert my_board.surface.get_size() == (500,500) 
-
-
-def test_board_rect_creation():
-    assert my_board.rect.size == (500, 500)
-
-
-def test_piece_constructor():
-    init_piece = Piece(0, "Red")
-    assert type(init_piece) == Piece
-
-def test_piece_surf_creation():
-    assert my_piece.surface.get_size() == (100,100)
-
-
-def test_piece_rect_creation():
-    assert my_piece.rect.size == (100,100)
+def test_pieces():
+        assert my_pieces.team_color == RED
+        assert my_pieces.number_of_pieces == piece_count
+        assert my_pieces.team_color == my_color
+        assert len(my_pieces.struct) == piece_count
+        for i in range(piece_count):
+                assert my_pieces.struct[i].size == SQUARESIZE
+                assert my_pieces.struct[i].color == my_color
 
 
 
-def test_square_surf_creation():
-    assert my_square.surface.get_size() == (200, 200)
+def test_squares():
+        assert my_square.size == size
+        assert my_square.color == my_color
+        assert my_square.row == row
+        assert my_square.col == col
+        #rel_pos is relative to the board
+        #abs_pos is relative to the entire window
+        assert my_square.rel_pos == ( col * size, row * size)
+        assert my_square.abs_pos == (col*size + BOARDPOSX, row*size + BOARDPOSY)
+        assert my_square.surface.get_size() == (size,size)
+        assert my_square.rect.size == (size,size)
+        assert my_square.contents == EMPTY
 
-def test_square_rect_creation():
-    assert my_square.rect.size == (200, 200)
-
-
-def test_pieces_creation():
-    my_board = Board(500, 500, 8)
-    my_pieces = Pieces(12, "Red", my_board)
-    for i in range(12):
-        assert type(my_pieces.struct[i]) == Piece
-
-def test_pieces_creation_1():
-
-    assert len(my_pieces.struct) == 12
-
-
-def test_overall_shape_board():
-    assert len(my_board.struct) * len(my_board.struct[0]) == square_count**2
-
-def test_checking_rows():
-    for k in range(piece_count):
-        pos_row = my_pieces.struct[k].row
-        pos_col = my_pieces.struct[k].col
-        assert my_board.struct[pos_row][pos_col].color == BLACK
-    
+def test_squares_fill():
+        test_square = Square(200, RED, row, col)
+        test_square.fill_square(my_piece)
+        assert test_square.contents == my_piece
 
 
-def test_setting_up_pieces_empty():
-    for i in range(square_count): 
-        assert type(my_pieces.struct[i]) == Piece
-        for j in range(square_count):
-            my_square = my_board.struct[i][j]
-            if (i + j) % 2 == 0:
-                assert my_board.struct[i][j].color == WHITE
-            else:
-                print(f"i is : {i} j is : {j}")
-                assert my_board.struct[i][j].color == BLACK
+def test_board():
+        assert my_board.width  == BOARDSIZE
+        assert my_board.height == BOARDSIZE
+        assert my_board.square_count  == square_count
+        assert len(my_board.struct) == square_count
+        for i in  range(square_count):
+                for j in range(square_count):
+                    if (i + j) % 2 == 0:
+                        assert my_board.struct[i][j].color == WHITE
+                        print(i,j)
+                    else:
+                        assert my_board.struct[i][j].color == BLACK
+                        print(i,j)
 
-###########
-def test_square_construction():
-    board_size = 800
-    square_count = 16
-    siz = board_size / square_count
-    my_board = Board(board_size, board_size, 16)
-    sqr = my_board.struct[3][4]
-    assert sqr.pos == (4 * siz, 3 * siz)
-    assert sqr.size == siz
-    assert sqr.color == BLACK
-    assert sqr.contents == EMPTY
-    assert sqr.row == 3
-    assert sqr.col == 4
-    assert sqr.rect.x == 4 * siz + BOARDPOSX
-    assert sqr.rect.y == 3 * siz + BOARDPOSY
+        assert my_board.surface.get_size() == (BOARDSIZE, BOARDSIZE)
+        assert my_board.rect.size == (BOARDSIZE, BOARDSIZE)
+        assert my_board.square_size == my_board.struct[0][0].size
 
+def test_set_pieces():
+    test_board = Board(BOARDSIZE, BOARDSIZE, square_count)
+    test_pieces_1 = Pieces(piece_count, RED)
+    test_pieces_2 = Pieces(piece_count, BLUE)
+    game_pieces = (test_pieces_1, test_pieces_2)
+    test_board.set_pieces(game_pieces)
 
-def test_pieces_creation2():
-    for i in range(4):
-        assert my_pieces.struct[i].color == RED
-
-def test_piece_setting():
-    my_piece = my_pieces.struct[2]
-    print(my_piece.pos)
-    assert my_piece.move_piece(2,2)
-    print(my_piece.pos)
+    for test_pieces in game_pieces:
+        k = 0
+        if test_pieces.team_color == RED:
+            my_range = range(test_board.square_count)
+        else:
+            my_range = reversed(range(test_board.square_count))
+        for i in my_range:
+            for j in range(test_board.square_count):
+                if test_board.struct[i][j].color == BLACK:
+                    test_board.move_piece(test_pieces.struct[k], i,j)
+                    assert test_pieces.struct[k].row == i
+                    assert test_pieces.struct[k].col == j
+                    assert test_board.struct[i][j].contents == test_pieces.struct[k]
+                    k += 1
+                if k == test_pieces.number_of_pieces:
+                    break
+            if k == test_pieces.number_of_pieces:
+                break
