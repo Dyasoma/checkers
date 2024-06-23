@@ -10,12 +10,7 @@ import pygame.surface
 WINDOWWIDTH = 800
 WINDOWHEIGHT = 800
 SQUARECOUNT = 8
-WINDOWTOBOARDRATIO = 0.85
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-WHITE = (255, 255, 255)
-BLUE = (0, 0, 255)
-DISPLAY_SURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
+WINDOWTOBOARDRATIO = 0.9
 BOARDSIZE = WINDOWWIDTH * WINDOWTOBOARDRATIO
 SQUARESIZE = BOARDSIZE / SQUARECOUNT
 BOARDPOSX = (WINDOWWIDTH - BOARDSIZE) / 2
@@ -23,27 +18,173 @@ BOARDPOSY = (WINDOWHEIGHT - BOARDSIZE) / 2
 EMPTY = None
 PIECESCOUNT = 12
 
+# Colors
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+DARK_RED = (139, 0, 0)
+WHITE = (255, 255, 255)
+BLUE = (0, 0, 255)
+DARK_BLUE = (0, 0, 139)
+YELLOW = (255, 255, 0)
+
+
+pygame.init()
+SCREEN = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
+pygame.display.set_caption("Checkers")
 
 
  # Classes
+
+
+class Piece:
+    def __init__(self, radius : float,  color: pygame.Color):
+        self.radius = radius
+        self.color = color
+        self.row = 0  # row index on board
+        self.col = 0  # col index on board
+        self.size = self.radius * 2 # size of rect enclosing piece
+        self.surface = self.__create_piece_surface()
+        self.rect = self.__create_piece_rect()
+        self.__set_pos()
+
+    def __create_piece_surface(self) -> pygame.Surface:
+        """
+        __create_piece_surface(self) -> pygame.Surface: creates the surface of a game piece. 
+        Where the surface is an image with area that encloses it. Creates a surface that can become
+        transparent, and fills it with a transparent color
+        return : pygame surface object. 
+        """
+        # creates the transparent surface to draw on
+        surf = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+        surf.fill((0,0,0,0)) #fills surface with "transparency"
+        return surf
+
+    def __create_piece_rect(self) -> pygame.Rect:
+        """
+        Creates the rectangular area enclosing the piece. Used for moving the piece
+        returns : a pygame rect object. 
+        """
+        # The center we use to draw is relative to the the surface we drawn onto. 
+        rect = pygame.draw.circle(self.surface, self.color, (self.radius, self.radius), self.radius)
+        return rect
+
+    def __set_pos(self):
+        """
+        __set_pos(self):
+        Sets the position of the piece, creating two instance attributes rel_pos and abs_pos
+        which represent the relative position and absolute position of the piece respectively
+        the relative position is relative to the board. The absolute position is relative to the 
+        screen window. 
+        """
+        self.rel_pos = (self.col * self.size, self.row * self.size)
+        self.abs_pos = (self.col * self.size + BOARDPOSX, self.row * self.size + BOARDPOSY)
+
+    def move_piece(self, new_row, new_col):
+        """
+        move_piece(self, new_row, new_col):
+        takes in as parameters the new row and col a piece will be set to. updates the row and col
+        instance attributes, and then makes a call to __set_pos().
+
+        """
+        self.row = new_row
+        self.col = new_col
+        self.__set_pos()
+
+
+class Pieces:
+    """
+    Object Pieces represents all the pieces that belong to a single team. Team is defined by team 
+    color parameter, number_of_pieces refers to the number of pieces on a single team.
+    """
+    def __init__(self, number_of_pieces: int, team_color: pygame.Color):
+        self.team_color = team_color
+        self.number_of_pieces = number_of_pieces
+        self.struct = self.__create_pieces()
+
+    def __create_pieces(self) -> list:
+        """
+        create_pieces(self) -> list:
+        creates a list whoses elements are Piece objects.
+        uses the number_of_pieces instance attribute to decide on the number of pieces to make
+        uses the team_color instance attribute  to decide which team all the pieces belong to,
+        and how to color the pieces.
+        returns a list of Piece Objects
+        """
+        struct = []
+        for i in range(self.number_of_pieces):
+            piece = Piece(
+                SQUARESIZE/2, self.team_color
+            )  # all pieces will begin at the same "position"
+            struct.append(piece)
+        return struct
+
+
+class Square:
+    def __init__(self, size : int, color : pygame.Color, row : int, col :int):# row/col are indices
+        """
+        Square objects represent a single square tile on the board.
+        Note that the square in the ith row and jth column will have a position
+        (j * size, i * size) where i and j are the indices of the squares on the board struct.
+        ex: for square in board.struct[3][4] with size 100 it will have a position = (400, 300)
+        where the position refers to the top left corner of the square. 
+        """
+        self.size = size
+        self.color = color
+        self.row = row
+        self.col = col
+        #rel_pos is relative to the board
+        #abs_pos is relative to the entire window
+        self.rel_pos = ( col * size, row * size)  # columns go left to right, rows go up and down
+        self.abs_pos = (col*size + BOARDPOSX, row*size + BOARDPOSY)
+        self.surface = self.__create_square_surface()
+        self.rect = self.__create_square_rect()
+        self.contents = EMPTY  # squares hold nothing in the beginning
+
+    def __create_square_surface(self) -> pygame.Surface:
+        """
+        __create_square_surface(self) -> pygame.Surface:
+        creates a surface object for the current square, which should be square.
+        Fills the square with the given color
+        """ 
+        surf = pygame.Surface((self.size, self.size))
+        surf.fill(self.color)
+        return surf
+
+    def __create_square_rect(self) -> pygame.Rect:
+        """
+        __create_square_rect(self) -> pygame.Rect:
+        creates the rectangular area of the square, If the board does not fill the entire window
+        Then rec.x and rec.y are positions relative to the window, not the board. 
+        """
+        rec = self.surface.get_rect(topleft = self.abs_pos)
+        return rec
+    
+    def fill_square(self, piece):
+        """
+        fill_square(self, piece):
+        sets the instance attribute "contents" to be filled with a certain piece. 
+        """
+        self.contents = piece
+
 class Board:
     """
     Represents an nxn checkered board.
     """
-    def __init__(self, length: int, height : int, square_count : int):
+    def __init__(self, width: int, height : int, square_count : int):
         """
         Board is initalized by providing its width and length, and the square_count
         Note that square_count refers to the count of squares along either the x axis or y axis.
         ex: if square count is 5, it will be assumed that a 5x5 board is desired. 
         """
-        self.length : int = length
+        self.width : int = width
         self.height: int = height
         self.square_count: int = square_count
-        self.struct = self.create_board_struct()
-        self.surface = self.create_board_surface()
-        self.rect = self.create_board_rect()
+        self.struct = self.__create_board_struct()
+        self.surface = self.__create_board_surface()
+        self.rect = self.__create_board_rect()
+        self.square_size = self.struct[0][0].size
 
-    def create_board_struct(self):
+    def __create_board_struct(self) -> list[list[Square]]:
         """
         Creates the instance attribute "struct" for the board object of class Board. instance 
         attribute refers to the boards Data structure, implemented as a list of lists 
@@ -69,7 +210,7 @@ class Board:
             struct.append(row)
         return struct
 
-    def create_board_surface(self):
+    def __create_board_surface(self) -> pygame.Surface:
         """
         create_board_surface(self):
         creates the board surface, using the pygame Surface object class, and assigning the returned
@@ -77,7 +218,7 @@ class Board:
         Serves as the "image" of the board
         """
         # Surf is first the entire size of the board
-        surf = pygame.Surface((self.length, self.height))
+        surf = pygame.Surface((self.width, self.height))
         # we go through the board and for each square, we "blit" onto the board the current square.
         for row_index in range(self.square_count):
             for col_index in range(self.square_count):
@@ -85,7 +226,7 @@ class Board:
                 surf.blit(current_square.surface, current_square.rel_pos)
         return surf
 
-    def create_board_rect(self):
+    def __create_board_rect(self) -> pygame.Rect:
         """
         create_board_rect(self)
         Creates an instance attribute of object Board, using the instance attribute surface.
@@ -96,276 +237,78 @@ class Board:
         rec.left = BOARDPOSX 
         rec.top = BOARDPOSY
         return rec
-    
-    def update_board_elements(self, piece, row : int, col : int):
-        piece : Piece
-        old_row = piece.row
-        old_col = piece.col
+
+
+    def update_board_elements(self, piece : Piece, row : int, col : int):
         piece.move_piece(row, col)
-        self.struct[row][col].contents = piece
-        self.struct[old_row][old_col] = EMPTY
+        self.struct[row][col].fill_square(piece)
 
 
+    def set_pieces(self, game_pieces : tuple[Pieces]):
+            """
+            set_pieces(self, game_pieces : tuple[Pieces])
+            sets pieces position relative to the board surface, that is if the board moves,
+            when we draw the pieces they will be drawn relative to the boards top right corner
+            updates the instance attribute "position" of the object of class Piece. 
+            Takes in as parameters a list of Piece objects and the team color stored as a string.
+            Side effect: mutates instance attribute "position"
+            returns : None
+            """
 
-class Square:
-    def __init__(self, size : int, color : pygame.Color, row : int, col :int):# row/col are indices
+            for pieces in game_pieces:
+                k = 0
+                if pieces.team_color == RED:
+                    my_range = range(self.square_count)
+                else:
+                    my_range = reversed(range(self.square_count))
+                for i in my_range:
+                    for j in range(self.square_count):
+                        if self.struct[i][j].color == BLACK:
+                            self.update_board_elements(pieces.struct[k], i, j)
+                            k += 1
+                        if k == pieces.number_of_pieces:
+                            break
+                    if k == pieces.number_of_pieces:
+                        break
+
+
+    def draw_pieces(self, pieces : Pieces):
         """
-        Square objects represent a single square tile on the board.
-        Note that the square in the ith row and jth column will have a position
-        (j * size, i * size) where i and j are the indices of the squares on the board struct.
-        ex: for square in board.struct[3][4] with size 100 it will have a position = (400, 300)
-        where the position refers to the top left corner of the square. 
+        Goes through the pieces data structure finds the piece and then Blits the piece onto the
+        board surface, mutating it
         """
-        self.size = size
-        self.color = color
-        self.contents = EMPTY  # squares hold nothing in the beginning
-        self.row = row
-        self.col = col
-        #rel_pos is relative to the board
-        #abs_pos is relative to the entire window
-        self.rel_pos = ( col * size, row * size)  # columns go left to right, rows go up and down
-        self.abs_pos = (col*size + BOARDPOSX, row*size + BOARDPOSY)
-        self.surface = self.create_square_surface()
-        self.rect = self.create_square_rect()
+        for piece_index in range(len(pieces.struct)):
+            piece = pieces.struct[piece_index]
+            self.surface.blit(piece.surface, piece.rel_pos, piece.rect)
 
-    def create_square_surface(self):
-        """
-        creates a surface object for the current square, which should be square.
-        Fills the square with the given color
-        """ 
-        surf = pygame.Surface((self.size, self.size))
-        surf.fill(self.color)
-        return surf
-
-    def create_square_rect(self):
-        """
-        creates the rectangular area of the square, If the board does not fill the entire window
-        Then rec.x and rec.y are positions relative to the window, not the baord. 
-        """
-        rec = self.surface.get_rect()
-        rec.x = self.abs_pos[0]
-        rec.y = self.abs_pos[1]
-        return rec
-
-class Pieces:
-    """
-    Object Pieces represents all the pieces that belong to a single team. Team is defined by team 
-    color parameter, number_of_pieces refers to the number of pieces on a single team, board
-    is passed as a parameter to allow for setting the pieces
-    """
-    def __init__(self, number_of_pieces: int, team_color: pygame.Color, board):
-        self.team_color = team_color
-        self.number_of_pieces = number_of_pieces
-        self.struct = self.create_pieces()
-        self.set(board)
-
-    def create_pieces(self) -> list:
-        """
-        create_pieces(self) -> list:
-        creates a list whoses elements are Piece objects.
-        uses the number_of_pieces instance attribute to decide on the number of pieces to make
-        uses the team_color instance attribute  to decide which teamm all the pieces belong to,
-        and how to color the pieces. Uses the Board object to place pieces onto the boards squares
-        parameters: number is the int representing the number of pieces to make.
-        returns a list of Piece Objects
-        """
-        struct = []
-        for i in range(self.number_of_pieces):
-            piece = Piece(
-                SQUARESIZE, self.team_color
-            )  # all pieces will begin at the same "position"
-            struct.append(piece)
-        return struct
-
-    def set(self, board: Board):
-        """
-        set_pieces_position(pieces: list[Piece], team_color : str)
-        sets pieces position relative to the board surface, that is if the board moves, when we draw
-        the pieces they will be drawn relative to the boards top right corner
-        updates the instance attribute "position" of the object of class
-        Piece. Takes in as parameters a list of Piece objects and the team color stored as a string.
-        Side effect: mutates instance attribute "position"
-        returns : None
-        """
-        k = 0
-        if self.team_color == RED:
-            my_range = range(board.square_count)
-        else:
-            my_range = reversed(range(board.square_count))
-        for i in my_range:
-            for j in range(board.square_count):
-                if board.struct[i][j].color == BLACK:
-                    board.update_board_elements(self.struct[k], i, j)
-                    k += 1
-                if k == self.number_of_pieces:
-                    break
-            if k == self.number_of_pieces:
-                break
-
-class Piece:
-    def __init__(self, size : float,  color: pygame.Color):
-        self.row = 0  # row index on board
-        self.col = 0  # col index on board
-        self.color = color
-        self.size = size
-        self.surface = self.create_piece_surface()
-        self.rect = self.create_piece_rect()
-
-    def create_piece_surface(self):
-        """
-        creates the surface for the piece, note that the surface begins transparent, and we then
-        draw onto the surface.
-        returns the surface after mutation. 
-        """
-        # creates the transparent surface to draw on
-        surf = pygame.Surface((self.size, self.size), pygame.SRCALPHA, 32)
-        surf = surf.convert_alpha()
-        # actually draws the ellipse onto the surface, mutating the original surface
-        pygame.draw.ellipse(surf, self.color, surf.get_rect())
-        return surf
-
-    def create_piece_rect(self):
-        return self.surface.get_rect()
-
-    def set_pos(self):
-        self.rel_pos = (self.col * self.size, self.row * self.size)
-        self.abs_pos = (self.col * self.size + BOARDPOSX, self.row * self.size + BOARDPOSY)
-
-    def move_piece(self, row, col):
-        self.row = row
-        self.col = col
-        self.set_pos()
-
+    def draw_elements(self, pieces_1, pieces_2):
+        SCREEN.fill("grey")
+        self.draw_pieces(pieces_1)
+        self.draw_pieces(pieces_2)
+        SCREEN.blit(self.surface, (BOARDPOSX, BOARDPOSY))
 
 # Functions
-def init_board(board_width: int, board_length: int, square_count : int) -> Board:
-    """
-    init_board(board_width: int, board_length: int, square_count : int) -> Board
-    Initalizes board, taking in as parameters the board width and board length as ints. Instantiates 
-    an object of class Board, creates board data structure, creates the board's surface to represent
-    the image of the board and creates the board's rect attribute to store and manipuate its 
-    rectangular area and position.
-    returns: Instance of Board Object
-    side effects : None
-    """
-    board = Board(board_width, board_length, square_count)
-    return board
-
-
-def init_pieces(board: Board):
-    """
-    initializes pieces, creating a list of lists whose elements are objects of class Piece.
-    Then makes a call to the method set
-    """
-    player_1_pieces = Pieces(PIECESCOUNT, RED, board)
-    player_2_pieces = Pieces(PIECESCOUNT, BLUE, board)
-
-    return player_1_pieces, player_2_pieces
-
-
-def draw_pieces(board: Board, pieces: Pieces):
-    """
-    Goes through the pieces data structure finds the piece and then Blits the piece onto the board
-    surface, mutating it
-    """
-    for piece_index in range(len(pieces.struct)):
-        piece = pieces.struct[piece_index]
-        board.surface.blit(piece.surface, piece.rel_pos, piece.rect)
-
-
-def draw_elements(board: Board, pieces_1: Piece, pieces_2: Pieces):
-    DISPLAY_SURF.fill("grey")
-    draw_pieces(board, pieces_1)
-    draw_pieces(board, pieces_2)
-    DISPLAY_SURF.blit(board.surface, (BOARDPOSX, BOARDPOSY))
-
-
-def init():
-    pygame.display.set_caption("Checkers")
-    pygame.init()
-    checkerboard = init_board(BOARDSIZE, BOARDSIZE, SQUARECOUNT)
-    player_1_pieces, player_2_pieces = init_pieces(checkerboard)
-    return checkerboard, player_1_pieces, player_2_pieces
-
-
 def main():
-    checkerboard : Board  
-    player_1_pieces : Pieces 
-    player_2_pieces : Pieces
-    # initalizes the checkeerboard, and each players set of pieces
-    checkerboard, player_1_pieces, player_2_pieces = init()
 
-    # Initially we draw
-    draw_elements(checkerboard, player_1_pieces, player_2_pieces)
+    player_1_pieces : Pieces = Pieces(PIECESCOUNT, RED)
+    player_2_pieces : Pieces = Pieces(PIECESCOUNT, BLUE)
+    checkerboard : Board = Board(BOARDSIZE, BOARDSIZE, SQUARECOUNT)
+    checkerboard.set_pieces((player_1_pieces, player_2_pieces))
+
     GAME_IS_RUNNING = True
     while GAME_IS_RUNNING:  # main game loop
         # collect inputs
         for event in pygame.event.get():
             if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-
+                GAME_IS_RUNNING = False
+                
         # handle events
 
-        
         # update
-        draw_elements(checkerboard, player_1_pieces, player_2_pieces)
+        checkerboard.draw_elements(player_1_pieces, player_2_pieces)
         pygame.display.update()
     pygame.quit()
+    sys.exit()
 
 if __name__ == "__main__":
     main()
-
-
-"""
-    A game of checkers.
-
-    We begin, two players I and me. The Board, The Pieces. Turns.
-
-    I place the board on the ground, I place the pieces on the board
-    Once all the pieces are on the board we can start.
-
-    I start, I choose a checker piece, it knows where it is, I know where it is.
-    I find the piece. I touch it, it shows me where it can go, what pieces it can take
-    The piece tells me that it is my piece. I move the piece, the piece speaks to the board
-    The board answers, the move is accepted. The piece moves. My turn ends
-
-    Me does the same thing now, he selects a piece on the board, he selects a piece
-    The piece tells him that he is not his piece. He selects another piece and tries to move it
-    The piece moves but the board says that move is not possible. Me tries again. He succeeds in moving
-    his piece. 
-
-    I move my piece, and take Me's piece, hopping over it In turn I get to repeat my turn.
-
-    some time passes, several turns pass. A piece reaches the end of the board, it tells me it is a queen
-    IT can move backwards and forwards.
-
-    we continue, I take Me's Pieces Me takes my pieces.
-    Eventually I take all of Me's pieces. The game is over
-"""
-"""
-    Turn system :
-    Player 1 begins by selecting a piece 
-    Handle Piece selection()
-    Player 1 moves pieces
-    Handle Piece movement()
-    Player 1 takes piece
-    Handle Take Piece Movement()
-        Piece can move to spot on checkerboard
-        Piece cannot move to a spot where their teams piece is
-        Piece can move to spot where other players piece is, and in doing so
-        Is allowed to move again if next movement also allows taking a piece
-        Handle double-jump, triple-jump, and N-jump
-    Handle Removing taken piece()
-        Removed Pieces have their removed Attribute set to true.
-        And they are disappeared from the checkerboard
-        Handle Cleaning board of removed pieces()
-    Once player 1 has made their move
-    Handle End Turn()
-    Player 2 starts Turn
-    If piece reaches the end of the board, Set queen Attribute to true. 
-    Handle Queen Creation()
-        > Maybe remove old piece and have a queen object?
-        > Maybe have an attribute that affects all pieces?
-
-    """
