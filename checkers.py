@@ -1,5 +1,14 @@
 # TODO
-# FIX MOVE PIECE
+# Add turn reseting, such that if a player picks the same piece it removes the selection
+# Add Automatic turn resetting if the current piece has no available moves
+# On succesful take, only allow double jumps.
+# Documentation
+# Testing
+# Refactoring
+# Documentation
+# Testing
+# Refactoring.
+# Complete. 
 import pygame, sys
 from pygame.locals import *
 import pygame.surface
@@ -16,7 +25,6 @@ BOARDPOSX = (WINDOWWIDTH - BOARDSIZE) / 2
 BOARDPOSY = (WINDOWHEIGHT - BOARDSIZE) / 2
 EMPTY = None
 PIECESCOUNT = 12
-
 # Colors
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
