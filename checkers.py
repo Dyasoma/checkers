@@ -3,6 +3,7 @@
 import pygame, sys
 from pygame.locals import *
 import pygame.surface
+from random import randint
 
 # Constants
 WINDOWWIDTH = 800
@@ -19,11 +20,12 @@ PIECESCOUNT = 12
 # Colors
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
-DARK_RED = (139, 0, 0)
+ORANGE = (255, 165, 0)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
-DARK_BLUE = (0, 0, 139)
+PURPLE = (186,85,211)
 YELLOW = (255, 255, 0)
+GREEN = (0, 255, 0)
 
 
 pygame.init()
@@ -45,12 +47,16 @@ class Piece:
     def __init__(self, radius : float,  color: pygame.Color):
         self.radius = radius
         self.color = color
+        self.team_color = color
         self.row = 0  # row index on board
         self.col = 0  # col index on board
         self.size = self.radius * 2 # size of rect enclosing piece
         self.surface = self.__create_piece_surface() # create surface
         self.rect = self.__create_piece_rect() # draws onto surface and provides rect
         self.rel_pos, self.abs_pos = self.__set_pos()
+        self.active = True
+        self.selected = False
+        self.is_queen = False
 
     def __create_piece_surface(self) -> pygame.Surface:
         """
@@ -93,6 +99,11 @@ class Piece:
         rel_pos = (self.col * self.size, self.row * self.size)
         abs_pos = (self.col * self.size + BOARDPOSX, self.row * self.size + BOARDPOSY)
         return (rel_pos, abs_pos)
+    
+
+
+    def change_color(self, color : pygame.Color):
+        self.rect = pygame.draw.circle(self.surface, color, (self.radius, self.radius), self.radius)
 
 class Pieces:
     """
@@ -103,6 +114,7 @@ class Pieces:
         self.team_color = team_color
         self.number_of_pieces = number_of_pieces
         self.struct = self.__create_pieces()
+        self.pieces_alive = self.number_of_pieces
 
     def __create_pieces(self) -> list[Piece]:
         """
@@ -142,6 +154,7 @@ class Square:
         self.surface = self.__create_square_surface()
         self.rect = self.__create_square_rect()
         self.contents = EMPTY  # squares hold nothing in the beginning
+        self.valid_move = False
 
     def __create_square_surface(self) -> pygame.Surface:
         """
@@ -280,11 +293,12 @@ class Board:
         old_col = piece.col
         piece.row = new_row
         piece.col = new_col
+        if self.struct[old_row][old_col].contents != EMPTY:
+            self.struct[old_row][old_col].contents = EMPTY
         piece.rel_pos = (new_col * piece.size, new_row * piece.size)
         piece.abs_pos = (new_col * piece.size + BOARDPOSX, new_row * piece.size + BOARDPOSY)
+        self.struct[new_row][new_col].contents = piece
 
-    
-    
 
     def draw_pieces(self, pieces : Pieces):
         """
@@ -293,34 +307,320 @@ class Board:
         """
         for piece_index in range(len(pieces.struct)):
             piece = pieces.struct[piece_index]
+            if piece.selected == True:
+                piece.change_color(YELLOW)
             self.surface.blit(piece.surface, piece.rel_pos, piece.rect)
-
-    def draw_elements(self, pieces_1, pieces_2):
+    
+    def draw_valid_moves(self, valid_moves : list[Square]):
+        square : Square
+        for square in valid_moves:
+            square.rect = pygame.draw.rect(self.surface, GREEN, (square.rel_pos, (square.size, square.size)))
+            
+    def draw_elements(self, pieces_1, pieces_2, valid_moves):
         SCREEN.fill("grey")
         self.draw_pieces(pieces_1)
         self.draw_pieces(pieces_2)
+        self.draw_valid_moves(valid_moves)
         SCREEN.blit(self.surface, (BOARDPOSX, BOARDPOSY))
+    
+
+    def generate_up_moves(self, piece, possible_moves):
+        row = piece.row
+        col = piece.col
+        # check top right
+        if row  - 1 >= 0 and col < SQUARECOUNT - 1:
+            if self.struct[row - 1][col + 1].contents == EMPTY:
+                possible_moves.append(self.struct[row - 1][col + 1])
+            else:
+                if self.struct[row - 1][col + 1].contents.team_color != piece.team_color:
+                    #enemy detected
+                    if row - 2 >= 0 and col < SQUARECOUNT - 2 and self.struct[row - 2][col + 2].contents == EMPTY:
+                        possible_moves.append(self.struct[row - 2][col + 2])
+        
+        
+        
+        # check top left
+        if row  - 1 >= 0 and col - 1 >= 0:
+            if self.struct[row - 1][col - 1].contents == EMPTY:
+                possible_moves.append(self.struct[row - 1][col - 1])
+            else:
+                if self.struct[row - 1][col - 1].contents.team_color != piece.team_color:
+                    #enemy detected
+                    if row - 2 >= 0 and col - 2 >= 0 and self.struct[row - 2][col - 2].contents == EMPTY:
+                        possible_moves.append(self.struct[row - 2][col - 2])
+        return possible_moves
+
+
+
+    def generate_down_moves(self, piece, possible_moves):
+        row = piece.row
+        col = piece.col
+        # check bottom right
+        if row  < SQUARECOUNT -1 and col < SQUARECOUNT - 1:
+            if self.struct[row + 1][col + 1].contents == EMPTY:
+                possible_moves.append(self.struct[row + 1][col + 1])
+            else:
+                if self.struct[row + 1][col + 1].contents.team_color != piece.team_color:
+                    #enemy detected
+                    if row  < SQUARECOUNT - 2 and col < SQUARECOUNT - 2 and self.struct[row + 2][col + 2].contents == EMPTY:
+                        possible_moves.append(self.struct[row + 2][col + 2])
+
+
+        # check bottom left 
+
+        if row  < SQUARECOUNT -1 and col - 1 >= 0:
+            if self.struct[row + 1][col - 1].contents == EMPTY:
+                possible_moves.append(self.struct[row + 1][col - 1])
+            else:
+                if self.struct[row + 1][col - 1].contents.team_color != piece.team_color:
+                    #enemy detected
+                    if row  < SQUARECOUNT - 2 and col - 2 >= 0 and self.struct[row + 2][col - 2].contents == EMPTY:
+                        possible_moves.append(self.struct[row + 2][col - 2])
+        return possible_moves
+
+
+    def generate_valid_moves_steps(self, piece : Piece):
+        possible_moves = []
+        if piece.is_queen:
+            self.generate_up_moves(piece, possible_moves)
+            self.generate_down_moves(piece, possible_moves)
+        elif piece.color == RED:
+            self.generate_down_moves(piece, possible_moves)
+        else:
+            self.generate_up_moves(piece, possible_moves)
+        for square in possible_moves:
+            square.valid_move = True 
+        return possible_moves
+
+    def check_queen(self, piece : Piece):
+        if not piece.is_queen:
+            if piece.color == RED:
+                if piece.row == SQUARECOUNT - 1:
+                    piece.is_queen = True
+                    piece.change_color(ORANGE)
+                    piece.color = ORANGE
+            else:
+                if piece.row == 0:
+                    piece.is_queen = True
+                    piece.change_color(PURPLE)
+                    piece.color = PURPLE
+
+
+    def delete_piece(self, piece : Piece, pieces: Pieces):
+        self.struct[piece.row][piece.col].contents = EMPTY
+        #first draw
+        self.struct[piece.row][piece.col].surface.fill(self.struct[piece.row][piece.col].color)
+        self.surface.blit(self.struct[piece.row][piece.col].surface, self.struct[piece.row][piece.col].rel_pos)
+        piece.active = False
+        piece.selected = False
+        piece.is_queen = False 
+        pieces.pieces_alive -= 1
+        length = len(pieces.struct)
+        pieces.struct.remove(piece)
+
+      
+
+
+
+    def make_move_step(self, square, mouse_pos):
+        valid_move_step = self.generate_valid_move_steps()
+        selected_square = self.mouse_to_square(mouse_pos)
+        if selected_square == None:
+            return None
+        if selected_square not in valid_move_step:
+            return None
+        return selected_square #piece
+
+    def select_move(self, piece, mouse_pos, possible_moves):
+        selected_square = self.mouse_to_square(mouse_pos) #checks if an actual square was selected
+        if selected_square == None:
+            return None
+        if selected_square in possible_moves:
+            return selected_square
+        else:
+            return None
+
+    def make_move(self, piece : Piece, square : Square, game_pieces : list[Pieces]):
+        piece_taken = False
+        old_row = piece.row
+        old_col = piece.col
+        new_row = square.row
+        new_col = square.col
+        self.struct[old_row][old_col].contents = EMPTY
+        #first draw
+        self.struct[old_row][old_col].surface.fill(self.struct[old_row][old_col].color)
+        self.surface.blit(self.struct[old_row][old_col].surface, self.struct[old_row][old_col].rel_pos)
+        piece.row = new_row
+        piece.col = new_col
+        self.move_piece(piece, square.row, square.col)
+        if (abs(new_row - old_row)) + (abs(new_col - old_col)) == 4:
+            mid_row = int((new_row - old_row) / 2 + old_row)
+            mid_col = int((new_col - old_col)/2 + old_col)
+            if game_pieces[0].team_color == piece.team_color:
+                delete_pieces = game_pieces[1]
+            else:
+                delete_pieces = game_pieces[0]
+            self.delete_piece(self.struct[mid_row][mid_col].contents, delete_pieces)
+            piece_taken = True
+        return piece_taken
+        
+
+
+
+    def select_piece(self, player_pieces, mouse_pos):
+        selected_square = self.mouse_to_square(mouse_pos)
+        if selected_square == None:
+            return None
+        if self.select_valid_piece(player_pieces, selected_square):
+            selected_square.contents.selected = True
+            return selected_square.contents
+        else:
+            return None
+
+
+    def select_valid_piece(self, player_pieces, square):
+        return square.contents in player_pieces.struct
+    
+    def mouse_to_square(self, mouse_pos):
+        if self.rect.collidepoint(mouse_pos):
+            adjusted_mouse_pos_x = mouse_pos[0] - int(BOARDPOSX)
+            adjusted_mouse_pos_y = mouse_pos[1] - int(BOARDPOSY)
+            col = adjusted_mouse_pos_x // int(SQUARESIZE)
+            row = adjusted_mouse_pos_y // int(SQUARESIZE)
+            return self.struct[row][col]
+        else:
+            return None
+    
+    def select_piece(self, player_pieces, mouse_pos):
+        selected_square = self.mouse_to_square(mouse_pos)
+        if selected_square == None:
+            return None
+        if self.select_valid_piece(player_pieces, selected_square):
+            selected_square.contents.selected = True
+            return selected_square.contents
+        else:
+            return None
+
+    def unselect_piece(self, piece : Piece):
+        if type(piece) == Piece:
+            piece.selected = False
+
+    def undraw_valid_moves(self, valid_moves : list[Square]):
+        square : Square
+        for square in valid_moves:
+            square.surface.fill(square.color)
+            self.surface.blit(square.surface, square.rel_pos)
+            
+
+"""
+def player_plays(player_pieces):
+    piece = self.select_piece()
+    update_board(piece)
+    #move = make_move(piece)
+    #update_board(move, piece)
+"""
+
+
+
+
+
+    
+
+
 
 # Functions
 def main():
 
+    GAME_IS_RUNNING = True
+    valid_moves = []
+    selected_piece  = None
+    selected_square = None
+    mouse_pressed = False
+    turn = randint(0,1)
     player_1_pieces : Pieces = Pieces(PIECESCOUNT, RED)
     player_2_pieces : Pieces = Pieces(PIECESCOUNT, BLUE)
+    players = [player_1_pieces, player_2_pieces]
+    print(f"Player {turn + 1} will begin ")
     checkerboard : Board = Board(BOARDSIZE, BOARDSIZE, SQUARECOUNT)
     checkerboard.set_pieces((player_1_pieces, player_2_pieces))
-
-    GAME_IS_RUNNING = True
+    checkerboard.draw_elements(player_1_pieces, player_2_pieces, valid_moves)
+    state = 0
     while GAME_IS_RUNNING:  # main game loop
         # collect inputs
         for event in pygame.event.get():
             if event.type == QUIT:
                 GAME_IS_RUNNING = False
+            if event.type == MOUSEBUTTONDOWN:
+                mouse_pressed = True
+
                 
         # handle events
+        
+        #player 1 plays their turn
+
+        
+        ## current players turn
+        #state 0, wait for player to press.
+        # if mouse_pressed, check if selected square is valid
+        for player in players:
+            if player.pieces_alive == 0:
+                print(f"Player {turn + 1} Has won")
+                GAME_IS_RUNNING = False
+                break
+        if not GAME_IS_RUNNING:
+            break      
+        if state == 0:
+            if mouse_pressed: #beginning of turn, wait to for player to use mousebutton
+                mouse_pos = pygame.mouse.get_pos()
+                # now check if piece was selected
+                if (selected_piece := checkerboard.select_piece(players[turn], mouse_pos)) != None:
+                    # piece was selected, generate valid moves and change state
+                    valid_moves = checkerboard.generate_valid_moves_steps(selected_piece)
+                    if len(valid_moves) == 0:
+                        state = 0
+                        valid_moves = []
+                        checkerboard.unselect_piece(selected_piece)
+                        #selected_piece = None
+                    else: 
+                        state = 1
+                    for square in valid_moves:
+                        square.valid_move = True
+        elif state == 1:
+            if  mouse_pressed: # indicates the choosing movement state, wait for mouse
+                mouse_pos = pygame.mouse.get_pos()
+                # now check if a valid move was selected
+                if (selected_square := checkerboard.select_move(players[turn], mouse_pos, valid_moves)) != None:
+                    selected_piece.change_color(selected_piece.color)
+                    checkerboard.unselect_piece(selected_piece)
+                    checkerboard.undraw_valid_moves(valid_moves)
+                    piece_taken = checkerboard.make_move(selected_piece, selected_square, players)
+                    checkerboard.check_queen(selected_piece)
+                    valid_moves = []
+                    if piece_taken:
+                        state = 0
+                    else:
+                        state = 2
+                        for player in players:
+                            if player.pieces_alive == 0:
+                                print(f"Player {turn + 1} Has won")
+                                GAME_IS_RUNNING = False
+                                break
+                    # square was selected, and move was valid we now change
+                # if (selected_move := checkerboard.)
+        else:
+            #checkerboard_update_and_move()
+            turn += 1
+            turn = turn % 2
+            state = 0
+
+
+
+
 
         # update
-        checkerboard.draw_elements(player_1_pieces, player_2_pieces)
+        checkerboard.draw_elements(player_1_pieces, player_2_pieces, valid_moves)
         pygame.display.update()
+        mouse_pressed = False
     pygame.quit()
     sys.exit()
 
