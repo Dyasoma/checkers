@@ -1,2 +1,2 @@
 
-                    if k == board.square_count:
+                    else:
