@@ -1,11 +1,8 @@
 # TODO
-# Add turn reseting, such that if a player picks the same piece it removes the selection
-# Add Automatic turn resetting if the current piece has no available moves
+# Documentation
+# Refactoring & Testing
+# Documentation
 # On succesful take, only allow double jumps.
-# Documentation
-# Testing
-# Refactoring
-# Documentation
 # Testing
 # Refactoring.
 # Complete. 
@@ -40,9 +37,6 @@ pygame.init()
 SCREEN = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 pygame.display.set_caption("Checkers")
 
-
- 
- 
  # Classes
 
 class Piece:
@@ -387,6 +381,21 @@ class Board:
         return possible_moves
 
 
+
+    def generate_valid_moves_double_steps(self, piece: Piece):
+        possible_moves = self.generate_valid_moves_steps(piece)
+        # first we generate all possible moves
+        # then we remove the moves that are single steps
+        row = piece.row
+        col = piece.col
+        for move in possible_moves:
+            # removes single step moves
+            if abs(move.row - piece.row) == 1 and abs(move.col - piece.col) == 1:
+                possible_moves.remove(move)
+        return possible_moves
+        
+
+
     def generate_valid_moves_steps(self, piece : Piece):
         possible_moves = []
         if piece.is_queen:
@@ -440,13 +449,9 @@ class Board:
         return selected_square #piece
 
     def select_move(self, piece, mouse_pos, possible_moves):
-        selected_square = self.mouse_to_square(mouse_pos) #checks if an actual square was selected
-        if selected_square == None:
-            return None
-        if selected_square in possible_moves:
-            return selected_square
-        else:
-            return None
+        return self.mouse_to_square(mouse_pos) #checks if an actual square was selected
+        
+
 
     def make_move(self, piece : Piece, square : Square, game_pieces : list[Pieces]):
         piece_taken = False
@@ -520,22 +525,6 @@ class Board:
             self.surface.blit(square.surface, square.rel_pos)
             
 
-"""
-def player_plays(player_pieces):
-    piece = self.select_piece()
-    update_board(piece)
-    #move = make_move(piece)
-    #update_board(move, piece)
-"""
-
-
-
-
-
-    
-
-
-
 # Functions
 def main():
 
@@ -548,11 +537,12 @@ def main():
     player_1_pieces : Pieces = Pieces(PIECESCOUNT, RED)
     player_2_pieces : Pieces = Pieces(PIECESCOUNT, BLUE)
     players = [player_1_pieces, player_2_pieces]
-    print(f"Player {turn + 1} will begin ")
+    print(f"Player {turn + 1} will begin ") # indicates who is the starting player
     checkerboard : Board = Board(BOARDSIZE, BOARDSIZE, SQUARECOUNT)
     checkerboard.set_pieces((player_1_pieces, player_2_pieces))
-    checkerboard.draw_elements(player_1_pieces, player_2_pieces, valid_moves)
     state = 0
+
+
     while GAME_IS_RUNNING:  # main game loop
         # collect inputs
         for event in pygame.event.get():
@@ -561,15 +551,7 @@ def main():
             if event.type == MOUSEBUTTONDOWN:
                 mouse_pressed = True
 
-                
         # handle events
-        
-        #player 1 plays their turn
-
-        
-        ## current players turn
-        #state 0, wait for player to press.
-        # if mouse_pressed, check if selected square is valid
         for player in players:
             if player.pieces_alive == 0:
                 print(f"Player {turn + 1} Has won")
@@ -588,7 +570,6 @@ def main():
                         state = 0
                         valid_moves = []
                         checkerboard.unselect_piece(selected_piece)
-                        #selected_piece = None
                     else: 
                         state = 1
                     for square in valid_moves:
@@ -596,27 +577,67 @@ def main():
         elif state == 1:
             if  mouse_pressed: # indicates the choosing movement state, wait for mouse
                 mouse_pos = pygame.mouse.get_pos()
+                # check if player has decided to cancel their move
                 # now check if a valid move was selected
                 if (selected_square := checkerboard.select_move(players[turn], mouse_pos, valid_moves)) != None:
+                    if selected_square in valid_moves:
+                        selected_piece.change_color(selected_piece.color)
+                        checkerboard.unselect_piece(selected_piece)
+                        checkerboard.undraw_valid_moves(valid_moves)
+                        piece_taken = checkerboard.make_move(selected_piece, selected_square, players)
+                        checkerboard.check_queen(selected_piece)
+                        valid_moves = []
+                        if piece_taken: # player has taken, reset turn for that piece
+                            state = 2
+                        else:
+                            state = 3
+                            for player in players:
+                                if player.pieces_alive == 0:
+                                    print(f"Player {turn + 1} Has won")
+                                    GAME_IS_RUNNING = False
+                                    break
+                    else:
+                        #Valid move not selected reset
+                        state = 0
+                        selected_piece.change_color(selected_piece.color)
+                        checkerboard.unselect_piece(selected_piece)
+                        checkerboard.undraw_valid_moves(valid_moves)
+                        valid_moves = []
+        elif state == 2: # piece has been taken
+            if mouse_pressed:
+                mouse_pos = pygame.mouse.get_pos()
+                if selected_piece == checkerboard.select_piece(players[turn], mouse_pos):
+                    # generate possible double jumps
+                    valid_moves = checkerboard.generate_valid_moves_double_steps(selected_piece)
+                    if len(valid_moves) == 0: # no possible double jumps
+                        state = 3 # end turn
+                        selected_piece.change_color(selected_piece.color)
+                        checkerboard.unselect_piece(selected_piece)
+                        checkerboard.undraw_valid_moves(valid_moves)
+                        valid_moves = []
+                    state = 1
+                elif (selected_square := checkerboard.select_move(players[turn], mouse_pos, valid_moves)) != None:
+                        if selected_square in valid_moves:
+                            selected_piece.change_color(selected_piece.color)
+                            checkerboard.unselect_piece(selected_piece)
+                            checkerboard.undraw_valid_moves(valid_moves)
+                            piece_taken = checkerboard.make_move(selected_piece, selected_square, players)
+                            checkerboard.check_queen(selected_piece)
+                            valid_moves = []
+                else:
+                    state = 3 # end turn
                     selected_piece.change_color(selected_piece.color)
                     checkerboard.unselect_piece(selected_piece)
                     checkerboard.undraw_valid_moves(valid_moves)
-                    piece_taken = checkerboard.make_move(selected_piece, selected_square, players)
-                    checkerboard.check_queen(selected_piece)
                     valid_moves = []
-                    if piece_taken:
-                        state = 0
-                    else:
-                        state = 2
-                        for player in players:
-                            if player.pieces_alive == 0:
-                                print(f"Player {turn + 1} Has won")
-                                GAME_IS_RUNNING = False
-                                break
-                    # square was selected, and move was valid we now change
-                # if (selected_move := checkerboard.)
+
         else:
             #checkerboard_update_and_move()
+            for player in players:
+                if player.pieces_alive == 0:
+                    print(f"Player {turn + 1} Has won")
+                    GAME_IS_RUNNING = False
+                    break
             turn += 1
             turn = turn % 2
             state = 0
