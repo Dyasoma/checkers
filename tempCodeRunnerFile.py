@@ -1,1 +1,2 @@
-        # handle events
+
+        return True
