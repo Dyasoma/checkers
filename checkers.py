@@ -10,7 +10,6 @@ import pygame, sys
 from pygame.locals import *
 import pygame.surface
 from random import randint, seed
-
 seed()
 # Constants
 WINDOWWIDTH = 800
