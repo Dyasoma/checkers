@@ -9,8 +9,8 @@
 import pygame, sys
 from pygame.locals import *
 import pygame.surface
-from random import randint
-
+from random import randint, seed
+#seed()
 # Constants
 WINDOWWIDTH = 800
 WINDOWHEIGHT = 800
@@ -203,6 +203,7 @@ class Board:
         self.surface = self.__create_board_surface()
         self.rect = self.__create_board_rect()
         self.square_size = self.struct[0][0].size
+        self.state = 0
 
     def __create_board_struct(self) -> list[list[Square]]:
         """
@@ -257,7 +258,7 @@ class Board:
         return rec
 
 
-    def set_pieces(self, game_pieces : tuple[Pieces]):
+    def set_pieces(self, game_pieces : list[Pieces]):
             """
             set_pieces(self, game_pieces : tuple[Pieces])
             sets pieces position relative to the board surface, that is if the board moves,
@@ -318,11 +319,12 @@ class Board:
         for square in valid_moves:
             square.rect = pygame.draw.rect(self.surface, GREEN, (square.rel_pos, (square.size, square.size)))
             
-    def draw_elements(self, pieces_1, pieces_2, valid_moves):
+    def draw_elements(self, pieces_1, pieces_2):
         SCREEN.fill("grey")
         self.draw_pieces(pieces_1)
         self.draw_pieces(pieces_2)
-        self.draw_valid_moves(valid_moves)
+
+    def draw_board(self):
         SCREEN.blit(self.surface, (BOARDPOSX, BOARDPOSY))
     
 
@@ -435,10 +437,6 @@ class Board:
         length = len(pieces.struct)
         pieces.struct.remove(piece)
 
-      
-
-
-
     def make_move_step(self, square, mouse_pos):
         valid_move_step = self.generate_valid_move_steps()
         selected_square = self.mouse_to_square(mouse_pos)
@@ -448,11 +446,16 @@ class Board:
             return None
         return selected_square #piece
 
-    def select_move(self, piece, mouse_pos, possible_moves):
-        return self.mouse_to_square(mouse_pos) #checks if an actual square was selected
+    def select_move(self, piece, mouse_pos, valid_moves):
+        selected_square = self.mouse_to_square(mouse_pos) #checks if an actual square was selected
+        if selected_square in valid_moves:
+                        piece.change_color(piece.color)
+                        self.unselect_piece(piece)
+                        self.undraw_valid_moves(valid_moves)
+        return selected_square
         
-
-
+        
+        
     def make_move(self, piece : Piece, square : Square, game_pieces : list[Pieces]):
         piece_taken = False
         old_row = piece.row
@@ -476,9 +479,6 @@ class Board:
             self.delete_piece(self.struct[mid_row][mid_col].contents, delete_pieces)
             piece_taken = True
         return piece_taken
-        
-
-
 
     def select_piece(self, player_pieces, mouse_pos):
         selected_square = self.mouse_to_square(mouse_pos)
@@ -489,7 +489,6 @@ class Board:
             return selected_square.contents
         else:
             return None
-
 
     def select_valid_piece(self, player_pieces, square):
         return square.contents in player_pieces.struct
@@ -503,7 +502,12 @@ class Board:
             return self.struct[row][col]
         else:
             return None
-    
+
+    def select_square(self, mouse_pos):
+        selected_square = self.mouse_to_square(mouse_pos)
+        return selected_square
+
+
     def select_piece(self, player_pieces, mouse_pos):
         selected_square = self.mouse_to_square(mouse_pos)
         if selected_square == None:
@@ -523,25 +527,203 @@ class Board:
         for square in valid_moves:
             square.surface.fill(square.color)
             self.surface.blit(square.surface, square.rel_pos)
+           
+"""
+if state == 0
+    state_0():
+elif state == 1
+    state_1():
+elif state == 2:
+    state_2():
+if change_state:
+    state = (state + 1) % 3
+
+game.state
+"""
+
+
+class State:
+    def __init__(self, current_state, previous_state, board):
+        self._current_state = current_state
+        self._previous_state = previous_state
+        self._states_count = 3
+        self._app = board
+    
+
+    def get_components(self, board: Board, players : list[Pieces], turn, selected_move, selected_piece, valid_moves):
+        self.board = board
+        self.players = players
+        self.turn = turn
+        self.selected_square = selected_move
+        self.selected_piece = selected_piece
+        self.valid_moves = valid_moves
+        self.piece_taken = False
+
+
+    def previous_state(self):
+        self._current_state = self._previous_state
+
+    def next_state(self):
+        self._previous_state = self._current_state
+        self._current_state = (self._current_state + 1) % self._states_count
+    def continue_state(self):
+        self._previous_state = self._current_state
+
+    def goto_state(self, target):
+        self._current_state  = target
+        self._previous_state = (target - 1) % 2
+
+    def iterate(self, initiate_change):
+        if initiate_change: 
+            self.next_state()
+            return True
+        else:
+            self.continue_state()
+            return False
+
+
+
+
+
+    def validate_change(self, mouse_pressed):
+        mouse_pos = pygame.mouse.get_pos()
+        if self._previous_state == 0:
+            # now obtain the square
+            self.selected_piece = self.board.select_piece(self.players[self.turn], mouse_pos)
+            if self.selected_piece == None:
+                 self.previous_state()
+        
+
+
+        if self._previous_state == 1:
+            # now obtain the square for the next move
+            self.selected_move = self.board.select_move(self.selected_piece, mouse_pos, self.valid_moves)
+            if len(self.valid_moves) == 0 and mouse_pressed:
+                self.clear_complete_cycle(True)
+                #self.reset_turn()
+                return None
+            if self.selected_move.contents == self.selected_piece: # Own Piece was selected
+                    if mouse_pressed:
+                        print("Selection Cancelled")
+                        #self.goto_state(0)
+                        self.reset_turn()
+                    return None
+            if self.selected_move not in self.valid_moves:
+                self.previous_state()
+                #if len(self.valid_moves) == 0:
+                   # self.previous_state()
+        
+        if self._previous_state == 2:
+            # checks if we have captured a piece
+            if self.piece_taken:
+                # now we need to reset this state
+                print("end turn")
+                self.goto_state(1)
+                #self.clear_complete_cycle(False)
+                return None
+
+
+
             
+
+    def check_cycle(self):
+        # returns true if state has changed
+        return self._previous_state > self._current_state
+
+    
+
+    def run(self, mouse_pressed):
+        if self._current_state == 0:
+            if self.iterate(mouse_pressed):
+                self.validate_change(mouse_pressed)
+            self.state_0()
+
+        elif self._current_state == 1:
+            self.state_1()
+            val = mouse_pressed or self.piece_taken
+            if self.iterate(val):
+                self.validate_change(mouse_pressed) # selects the square for next move
+                # Handles case where no square / or invalid square is selected
+                
+                
+        elif self._current_state == 2:
+            # This state first handles completing a move. 
+            self.state_2()
+            # we always want to iterate once we hit state 4, independent of mouse being pressed 
+            #self.iterate(True) 
+            self.validate_change(mouse_pressed)
+
+                
+
+    def clear_complete_cycle(self, completed_turn):
+        if self.selected_piece != None:
+            self.selected_piece.change_color(self.selected_piece.color)
+            self.board.unselect_piece(self.selected_piece)
+        if len(self.valid_moves) != 0:
+            self.board.undraw_valid_moves(self.valid_moves)
+            self.valid_moves = []
+        self.selected_piece = None
+        self.selected_square = None
+        if completed_turn:
+            self.turn += 1
+            self.turn = self.turn % 2
+            self._previous_state = 0
+            self._current_state = 0
+            self.piece_taken = False
+
+
+    def reset_turn(self):
+        if self.selected_piece != None:
+            self.selected_piece.change_color(self.selected_piece.color)
+            self.board.unselect_piece(self.selected_piece)
+        if len(self.valid_moves) != 0:
+            self.board.undraw_valid_moves(self.valid_moves)
+            self.valid_moves = []
+        self.selected_piece = None
+        self.selected_square = None
+        self._previous_state = 0
+        self._current_state = 0
+        self.piece_taken = False
+
+    def state_0(self): 
+        self.board.draw_elements(self.players[0], self.players[1])
+        self.board.draw_board()
+        pygame.display.update()
+
+    def state_1(self):
+        self.board.draw_elements(self.players[0], self.players[1])
+        self.valid_moves = self.board.generate_valid_moves_steps(self.selected_piece)
+        self.board.draw_valid_moves(self.valid_moves)
+        self.board.draw_board()
+        pygame.display.update()
+        
+    
+    def state_2(self):
+        # move pieces first.
+        self.piece_taken = self.board.make_move(self.selected_piece, self.selected_move, self.players)
+        self.board.check_queen(self.selected_piece)
+        self.board.draw_elements(self.players[0], self.players[1])
+        self.board.draw_board()
+        pygame.display.update()
+      
+
 
 # Functions
 def main():
-
     GAME_IS_RUNNING = True
     valid_moves = []
     selected_piece  = None
-    selected_square = None
+    selected_move = None
     mouse_pressed = False
     turn = randint(0,1)
     player_1_pieces : Pieces = Pieces(PIECESCOUNT, RED)
     player_2_pieces : Pieces = Pieces(PIECESCOUNT, BLUE)
     players = [player_1_pieces, player_2_pieces]
-    print(f"Player {turn + 1} will begin ") # indicates who is the starting player
+    print(f"Player {turn + 1} will begin ") # indicates which players turn it is.
     checkerboard : Board = Board(BOARDSIZE, BOARDSIZE, SQUARECOUNT)
-    checkerboard.set_pieces((player_1_pieces, player_2_pieces))
-    state = 0
-
+    checkerboard.set_pieces(players)
+    game_state = State(0, 0, checkerboard)
+    game_state.get_components(checkerboard, players, turn, selected_move, selected_piece, valid_moves)
 
     while GAME_IS_RUNNING:  # main game loop
         # collect inputs
@@ -551,105 +733,21 @@ def main():
             if event.type == MOUSEBUTTONDOWN:
                 mouse_pressed = True
 
+
         # handle events
+        """ 
         for player in players:
             if player.pieces_alive == 0:
                 print(f"Player {turn + 1} Has won")
                 GAME_IS_RUNNING = False
                 break
-        if not GAME_IS_RUNNING:
-            break      
-        if state == 0:
-            if mouse_pressed: #beginning of turn, wait to for player to use mousebutton
-                mouse_pos = pygame.mouse.get_pos()
-                # now check if piece was selected
-                if (selected_piece := checkerboard.select_piece(players[turn], mouse_pos)) != None:
-                    # piece was selected, generate valid moves and change state
-                    valid_moves = checkerboard.generate_valid_moves_steps(selected_piece)
-                    if len(valid_moves) == 0:
-                        state = 0
-                        valid_moves = []
-                        checkerboard.unselect_piece(selected_piece)
-                    else: 
-                        state = 1
-                    for square in valid_moves:
-                        square.valid_move = True
-        elif state == 1:
-            if  mouse_pressed: # indicates the choosing movement state, wait for mouse
-                mouse_pos = pygame.mouse.get_pos()
-                # check if player has decided to cancel their move
-                # now check if a valid move was selected
-                if (selected_square := checkerboard.select_move(players[turn], mouse_pos, valid_moves)) != None:
-                    if selected_square in valid_moves:
-                        selected_piece.change_color(selected_piece.color)
-                        checkerboard.unselect_piece(selected_piece)
-                        checkerboard.undraw_valid_moves(valid_moves)
-                        piece_taken = checkerboard.make_move(selected_piece, selected_square, players)
-                        checkerboard.check_queen(selected_piece)
-                        valid_moves = []
-                        if piece_taken: # player has taken, reset turn for that piece
-                            state = 2
-                        else:
-                            state = 3
-                            for player in players:
-                                if player.pieces_alive == 0:
-                                    print(f"Player {turn + 1} Has won")
-                                    GAME_IS_RUNNING = False
-                                    break
-                    else:
-                        #Valid move not selected reset
-                        state = 0
-                        selected_piece.change_color(selected_piece.color)
-                        checkerboard.unselect_piece(selected_piece)
-                        checkerboard.undraw_valid_moves(valid_moves)
-                        valid_moves = []
-        elif state == 2: # piece has been taken
-            if mouse_pressed:
-                mouse_pos = pygame.mouse.get_pos()
-                if selected_piece == checkerboard.select_piece(players[turn], mouse_pos):
-                    # generate possible double jumps
-                    valid_moves = checkerboard.generate_valid_moves_double_steps(selected_piece)
-                    if len(valid_moves) == 0: # no possible double jumps
-                        state = 3 # end turn
-                        selected_piece.change_color(selected_piece.color)
-                        checkerboard.unselect_piece(selected_piece)
-                        checkerboard.undraw_valid_moves(valid_moves)
-                        valid_moves = []
-                    state = 1
-                elif (selected_square := checkerboard.select_move(players[turn], mouse_pos, valid_moves)) != None:
-                        if selected_square in valid_moves:
-                            selected_piece.change_color(selected_piece.color)
-                            checkerboard.unselect_piece(selected_piece)
-                            checkerboard.undraw_valid_moves(valid_moves)
-                            piece_taken = checkerboard.make_move(selected_piece, selected_square, players)
-                            checkerboard.check_queen(selected_piece)
-                            valid_moves = []
-                else:
-                    state = 3 # end turn
-                    selected_piece.change_color(selected_piece.color)
-                    checkerboard.unselect_piece(selected_piece)
-                    checkerboard.undraw_valid_moves(valid_moves)
-                    valid_moves = []
-
-        else:
-            #checkerboard_update_and_move()
-            for player in players:
-                if player.pieces_alive == 0:
-                    print(f"Player {turn + 1} Has won")
-                    GAME_IS_RUNNING = False
-                    break
-            turn += 1
-            turn = turn % 2
-            state = 0
-
-
-
-
-
-        # update
-        checkerboard.draw_elements(player_1_pieces, player_2_pieces, valid_moves)
-        pygame.display.update()
+       """ 
+        #game_state.state_0(checkerboard, players, turn, mouse_pressed)
+        game_state.run(mouse_pressed)
+        if game_state.check_cycle():
+            game_state.clear_complete_cycle(True)
         mouse_pressed = False
+
     pygame.quit()
     sys.exit()
 
