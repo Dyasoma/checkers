@@ -1,1 +1,1 @@
-Checkers game, works :)
+Checkers game, works, maybe. 
